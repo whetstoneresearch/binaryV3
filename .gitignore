@@ -14,3 +14,4 @@ docs/
 .env
 
 jup/
+.DS_Store

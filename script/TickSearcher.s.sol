@@ -11,20 +11,14 @@ import {FullMath} from "@v4-core/libraries/FullMath.sol";
 import {ERC20, SafeTransferLib} from "@solmate/utils/SafeTransferLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {Test, console, console2} from "forge-std/Test.sol";
+import {Script, console, console2} from "forge-std/Script.sol";
 import {TickSearcher} from "../src/TickSearcher.sol";
 
-contract TickSearcherTest is Test {
-    TickSearcher searcher;
+contract TickSearcherTest is Script {
 
-    function setUp() public {
-        //forkId = vm.createSelectFork("https://base-mainnet.g.alchemy.com/v2/Ed8RgGP0O64bixqiVhSt1GONANrO7hjP", 21179722);
-        searcher = new TickSearcher();
-    }
+    function run() public {
+        TickSearcher searcher = new TickSearcher();
 
-
-    function test_run2() public {
-        // create the string array to putting into ffi
         string[] memory runPyInputs = new string[](6);
 
         runPyInputs[0] = "uv";
@@ -48,21 +42,12 @@ contract TickSearcherTest is Test {
         require(tickLower != tickUpper, "startingTick == endingTick");
         
         uint16 numPositions = 15;
-        uint256 marketSupply = 9e26;
+        uint256 marketSupply = 9e26; // 10% vesting 
         (uint256 mid,,)  = searcher.searchParameters(tickLower, tickUpper, numPositions, false, marketSupply);
 
         console.log("startingTick", tickLower);
         console.log("endingTick", tickUpper);
-        console.log("mid", mid);        
-    }    
-    // function test_run() public {
-    //     (uint24 fee, int24 tickLower, int24 tickUpper, uint16 numPositions) = (10000, 172400, 225000, 15);
+        console.log("mid", mid);   
+    }
 
-    //     uint256 supply = 9e26;
-
-    //     (uint256 mid, uint256 delta0, uint256 delta1) = searcher.searchParameters(tickLower, tickUpper, numPositions, false, supply);
-    //     console.log("mid", mid);
-    //     console.log("tickLower", tickLower);
-    //     console.log("tickUpper", tickUpper);
-    // }
-}
+} 
