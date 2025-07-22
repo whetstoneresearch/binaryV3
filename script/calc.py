@@ -7,10 +7,13 @@ import numpy as np
 ###### State Variables ######
 startingTgtMarketCapUSD = 5_000
 endingTgtMarketCapUSD = 10_000
-
-fee = 10_000 # important for binning the ticks
-tokenSupply = 1_000_000_000
 numeraireUSD = 3723
+
+###### Token Variables ######
+fee = 10_000 # important for binning the ticks
+tokenSupply = 1_000_000_000 # default
+shareToBeSold = .9 # 10% vesting
+tokenDecimals = 1e18
 
 ## -1 = downward, 0 = true, 1 = upward
 roundingDirection = -1
@@ -47,7 +50,9 @@ endingTick = int(((endingTick // ts) + (roundingDirection * -1)) * ts)
 realizedStartingMarketCap = (numeraireUSD / 1.0001 ** (startingTick)) * tokenSupply
 realizedEndingMarketCap = (numeraireUSD / 1.0001 ** (endingTick)) * tokenSupply
 
+tokensToBeSoldDecimals = int(tokenSupply * shareToBeSold * tokenDecimals)
+
 var = sys.stdout
-data = [startingTick, endingTick]
-out = encode(['int256[2]'], [data])
+data = [startingTick, endingTick, tokensToBeSoldDecimals]
+out = encode(['int256[3]'], [data])
 var.write(out.hex())

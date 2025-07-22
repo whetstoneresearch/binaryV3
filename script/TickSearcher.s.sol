@@ -30,11 +30,12 @@ contract TickSearcherTest is Script {
 
         bytes memory pythonResult = vm.ffi(runPyInputs);
 
-        int256[2] memory pyOut;
-        pyOut = abi.decode(pythonResult, (int256[2]));
+        int256[3] memory pyOut;
+        pyOut = abi.decode(pythonResult, (int256[3]));
         
         int24 tickLower = int24(pyOut[0]);
         int24 tickUpper = int24(pyOut[1]);
+        uint256 marketSupply = uint256(pyOut[2]);
 
         // sort
         (tickLower, tickUpper) = tickLower < tickUpper ? (tickLower, tickUpper) : (tickUpper, tickLower);
@@ -42,7 +43,6 @@ contract TickSearcherTest is Script {
         require(tickLower != tickUpper, "startingTick == endingTick");
         
         uint16 numPositions = 15;
-        uint256 marketSupply = 9e26; // 10% vesting 
         (uint256 mid,,)  = searcher.searchParameters(tickLower, tickUpper, numPositions, false, marketSupply);
 
         console.log("startingTick", tickLower);
