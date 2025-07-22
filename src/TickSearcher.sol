@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.13;
 
-import { IUniswapV3Factory } from "@v3-core/interfaces/IUniswapV3Factory.sol";
-import { IUniswapV3Pool } from "@v3-core/interfaces/IUniswapV3Pool.sol";
-import { IUniswapV3MintCallback } from "@v3-core/interfaces/callback/IUniswapV3MintCallback.sol";
-import { TickMath } from "@v4-core/libraries/TickMath.sol";
-import { LiquidityAmounts } from "@v4-core-test/utils/LiquidityAmounts.sol";
-import { SqrtPriceMath } from "@v4-core/libraries/SqrtPriceMath.sol";
-import { FullMath } from "@v4-core/libraries/FullMath.sol";
-import { ERC20, SafeTransferLib } from "@solmate/utils/SafeTransferLib.sol";
-import { IPoolInitializer } from "src/interfaces/IPoolInitializer.sol";
+import {IUniswapV3Factory} from "@v3-core/interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3Pool} from "@v3-core/interfaces/IUniswapV3Pool.sol";
+import {IUniswapV3MintCallback} from "@v3-core/interfaces/callback/IUniswapV3MintCallback.sol";
+import {TickMath} from "@v4-core/libraries/TickMath.sol";
+import {LiquidityAmounts} from "@v4-core-test/utils/LiquidityAmounts.sol";
+import {SqrtPriceMath} from "@v4-core/libraries/SqrtPriceMath.sol";
+import {FullMath} from "@v4-core/libraries/FullMath.sol";
+import {ERC20, SafeTransferLib} from "@solmate/utils/SafeTransferLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {Test, console, console2} from "forge-std/Test.sol";
 
-contract v3Initializer is Test {
-    uint256 forkId;
-
+contract TickSearcher is Test {
     /// @dev Constant used to increase precision during calculations
     uint256 constant WAD = 1e18;
 
@@ -36,32 +33,31 @@ contract v3Initializer is Test {
         uint24 fee;
     }
 
-    function setUp() public {
-        //forkId = vm.createSelectFork("https://base-mainnet.g.alchemy.com/v2/Ed8RgGP0O64bixqiVhSt1GONANrO7hjP", 21179722);
-    } 
-
-    function searchParameters(int24 tickLower, int24 tickUpper, uint16 numPositions, bool isToken0, uint256 supply) public returns (uint256) {
+    function searchParameters(int24 tickLower, int24 tickUpper, uint16 numPositions, bool isToken0, uint256 supply)
+        public
+        pure
+        returns (uint256, uint256, uint256)
+    {
         uint256 top = WAD;
         uint256 bottom = 0;
         int24 tickSpacing = 200;
 
-        uint256 mid; 
+        uint256 mid;
         uint256 delta0;
-        uint256 delta1;   
+        uint256 delta1;
         for (uint256 i; i < numMaxSearchers; i++) {
             mid = (top + bottom) / 2;
 
             uint256 numTokensToSell = FullMath.mulDiv(supply, mid, WAD);
-                    
+
             // reserves are the other side that has been bootstrapped
-            (, uint256 reserves) =
-                calculateLogNormalDistribution(tickLower, tickUpper, tickSpacing, isToken0, numPositions, numTokensToSell);
+            (, uint256 reserves) = calculateLogNormalDistribution(
+                tickLower, tickUpper, tickSpacing, isToken0, numPositions, numTokensToSell
+            );
 
             (delta0, delta1) = calculateLpTail(tickLower, tickUpper, isToken0, reserves, supply - numTokensToSell);
-            // console.log("i", i);
-            // console.log("mid", mid);
-            // console.log("outputToken0", delta0);
-            // console.log("outputToken1", delta1);
+
+            // execute the bisection search sorting
             {
                 uint256 delta0Tolerance;
                 uint256 delta1Tolerance;
@@ -73,7 +69,7 @@ contract v3Initializer is Test {
                     delta1Tolerance = 1e8;
                 }
 
-                if (delta0 > delta0Tolerance){
+                if (delta0 > delta0Tolerance) {
                     (bottom, top) = (bottom, mid);
                 } else if (delta1 > delta1Tolerance) {
                     (bottom, top) = (mid, top);
@@ -81,22 +77,9 @@ contract v3Initializer is Test {
                     break;
                 }
             }
-       }
-        console.log("mid", mid);
-        console.log("outputToken0", delta0);
-        console.log("outputToken1", delta1);
+        }
 
-        return mid;
-    }
-
-    function test_run () public {
-        (uint24 fee, int24 tickLower, int24 tickUpper, uint16 numPositions) =
-            (10000, 175000, 225000, 15);
-        
-        uint256 supply = 1000000000000000000000000;
-
-        uint256 mid = searchParameters(tickLower, tickUpper, numPositions, false, supply);
-        console.log("mid", mid);
+        return (mid, delta0, delta1);
     }
 
     function alignTickToTickSpacing(bool isToken0, int24 tick, int24 tickSpacing) internal pure returns (int24) {
@@ -142,10 +125,12 @@ contract v3Initializer is Test {
             isToken0 ? reserves : bondingAssetsRemaining
         );
 
-        uint256 amount1In = LiquidityAmounts.getAmount1ForLiquidity(TickMath.MIN_SQRT_PRICE, sqrtPriceAtTail, lpTailLiquidity);
-        uint256 amount0In = LiquidityAmounts.getAmount0ForLiquidity(sqrtPriceAtTail, TickMath.MAX_SQRT_PRICE, lpTailLiquidity);
+        uint256 amount1In =
+            LiquidityAmounts.getAmount1ForLiquidity(TickMath.MIN_SQRT_PRICE, sqrtPriceAtTail, lpTailLiquidity);
+        uint256 amount0In =
+            LiquidityAmounts.getAmount0ForLiquidity(sqrtPriceAtTail, TickMath.MAX_SQRT_PRICE, lpTailLiquidity);
 
-        delta0 = isToken0 ? bondingAssetsRemaining - amount0In: reserves - amount0In;
+        delta0 = isToken0 ? bondingAssetsRemaining - amount0In : reserves - amount0In;
         delta1 = isToken0 ? reserves - amount1In : bondingAssetsRemaining - amount1In;
     }
 
@@ -246,7 +231,7 @@ contract v3Initializer is Test {
                 newPositions[i].tickLower,
                 newPositions[i].tickUpper,
                 newPositions[i].liquidity,
-                abi.encode(CallbackData({ asset: asset, numeraire: numeraire, fee: fee }))
+                abi.encode(CallbackData({asset: asset, numeraire: numeraire, fee: fee}))
             );
         }
     }
